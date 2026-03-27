@@ -1,0 +1,975 @@
+﻿<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stavíme AI Chatbota v n8n</title>
+<style>
+  :root {
+    --n8n-orange: #FF6D5A;
+    --n8n-dark: #1A1A2E;
+    --n8n-darker: #0F0F1E;
+    --n8n-blue: #4C6EF5;
+    --n8n-green: #40C057;
+    --n8n-yellow: #FAB005;
+    --n8n-purple: #9775FA;
+    --n8n-red: #FA5252;
+    --text-light: #F0F0F0;
+    --text-muted: #A0A0B8;
+    --card-bg: rgba(255,255,255,0.06);
+    --card-border: rgba(255,255,255,0.1);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--n8n-darker);
+    color: var(--text-light);
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  /* ── Slideshow container ── */
+  .slideshow {
+    width: 100%;
+    height: 100%;
+    position: relative;
+  }
+
+  .slide {
+    position: absolute;
+    inset: 0;
+    display: none;
+    flex-direction: column;
+    padding: 48px 72px;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    overflow: hidden;
+  }
+
+  .slide.active {
+    display: flex;
+    opacity: 1;
+  }
+
+  /* ── Background gradients per slide ── */
+  .slide-hero   { background: radial-gradient(ellipse at 60% 50%, #2d1b4e 0%, var(--n8n-darker) 70%); }
+  .slide-orange { background: radial-gradient(ellipse at 30% 40%, #3d1f0a 0%, var(--n8n-darker) 65%); }
+  .slide-blue   { background: radial-gradient(ellipse at 70% 30%, #0a1a3d 0%, var(--n8n-darker) 65%); }
+  .slide-green  { background: radial-gradient(ellipse at 40% 60%, #0a2d1b 0%, var(--n8n-darker) 65%); }
+  .slide-purple { background: radial-gradient(ellipse at 60% 40%, #1e0a3d 0%, var(--n8n-darker) 65%); }
+  .slide-teal   { background: radial-gradient(ellipse at 50% 50%, #0a2d2d 0%, var(--n8n-darker) 65%); }
+
+  /* ── Typography ── */
+  .slide-tag {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--n8n-orange);
+    margin-bottom: 12px;
+  }
+
+  h1 {
+    font-size: clamp(2.2rem, 4vw, 3.6rem);
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -1px;
+  }
+
+  h2 {
+    font-size: clamp(1.5rem, 2.8vw, 2.4rem);
+    font-weight: 700;
+    line-height: 1.2;
+    margin-bottom: 28px;
+  }
+
+  h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+    color: var(--text-light);
+  }
+
+  p, li {
+    font-size: clamp(0.82rem, 1.1vw, 0.98rem);
+    line-height: 1.65;
+    color: var(--text-muted);
+  }
+
+  strong { color: var(--text-light); }
+  em { color: var(--n8n-orange); font-style: normal; }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 16px;
+    padding: 22px 24px;
+    backdrop-filter: blur(8px);
+  }
+
+  .card.accent-orange { border-color: rgba(255,109,90,0.4); background: rgba(255,109,90,0.08); }
+  .card.accent-blue   { border-color: rgba(76,110,245,0.4); background: rgba(76,110,245,0.08); }
+  .card.accent-green  { border-color: rgba(64,192,87,0.4);  background: rgba(64,192,87,0.08); }
+  .card.accent-yellow { border-color: rgba(250,176,5,0.4);  background: rgba(250,176,5,0.08); }
+  .card.accent-purple { border-color: rgba(151,117,250,0.4);background: rgba(151,117,250,0.08); }
+  .card.accent-red    { border-color: rgba(250,82,82,0.4);  background: rgba(250,82,82,0.08); }
+
+  /* ── Grid layouts ── */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; }
+
+  /* ── Badge / pill ── */
+  .badge {
+    display: inline-block;
+    padding: 3px 12px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+  .badge-orange { background: rgba(255,109,90,0.2); color: var(--n8n-orange); }
+  .badge-blue   { background: rgba(76,110,245,0.2); color: #7B9EFF; }
+  .badge-green  { background: rgba(64,192,87,0.2);  color: #69DB7C; }
+  .badge-yellow { background: rgba(250,176,5,0.2);  color: #FFD43B; }
+  .badge-purple { background: rgba(151,117,250,0.2);color: #B197FC; }
+  .badge-red    { background: rgba(250,82,82,0.2);  color: #FF8787; }
+
+  /* ── Icons (SVG inline) ── */
+  .icon { width: 36px; height: 36px; flex-shrink: 0; }
+  .icon-sm { width: 22px; height: 22px; flex-shrink: 0; }
+
+  /* ── Hero slide specific ── */
+  .hero-content { margin-top: auto; margin-bottom: auto; }
+  .hero-subtitle {
+    font-size: clamp(1rem, 1.5vw, 1.25rem);
+    color: var(--text-muted);
+    margin-top: 16px;
+    font-style: italic;
+  }
+  .hero-decoration {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    opacity: 0.1;
+  }
+
+  /* ── Node anatomy diagram ── */
+  .node-diagram {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    justify-content: center;
+    margin: 20px 0;
+  }
+  .node-box {
+    padding: 20px 28px;
+    border-radius: 14px;
+    text-align: center;
+    min-width: 160px;
+  }
+  .node-arrow {
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+  }
+  .node-arrow svg { width: 40px; height: 20px; }
+
+  /* ── Flow pipeline ── */
+  .pipeline {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    width: 100%;
+    justify-content: center;
+  }
+  .pipe-step {
+    flex: 1;
+    padding: 18px 16px;
+    border-radius: 14px;
+    text-align: center;
+    position: relative;
+  }
+  .pipe-arrow {
+    width: 36px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* ── Table ── */
+  .compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+  }
+  .compare-table th {
+    padding: 12px 16px;
+    text-align: left;
+    font-size: 0.9rem;
+    border-bottom: 2px solid var(--card-border);
+  }
+  .compare-table td {
+    padding: 11px 16px;
+    border-bottom: 1px solid var(--card-border);
+    color: var(--text-muted);
+  }
+  .compare-table tr:hover td { background: rgba(255,255,255,0.03); }
+  .compare-table .col-sheets { color: #69DB7C; font-weight: 600; }
+  .compare-table .col-pg { color: #7B9EFF; font-weight: 600; }
+  .th-sheets { color: #69DB7C !important; }
+  .th-pg { color: #7B9EFF !important; }
+
+  /* ── Code block ── */
+  .code-block {
+    background: rgba(0,0,0,0.4);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    padding: 16px 20px;
+    font-family: 'Cascadia Code', 'Consolas', monospace;
+    font-size: 0.88rem;
+    color: #E9ECEF;
+    line-height: 1.7;
+  }
+  .code-key   { color: #FF8787; }
+  .code-val   { color: #69DB7C; }
+  .code-punct { color: #ADB5BD; }
+
+  /* ── Checklist ── */
+  .checklist { list-style: none; }
+  .checklist li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    color: var(--text-muted);
+    font-size: 0.9rem;
+  }
+  .checklist li:last-child { border-bottom: none; }
+  .check-icon { color: var(--n8n-green); font-size: 1rem; flex-shrink: 0; margin-top: 2px; }
+
+  /* ── Number badge ── */
+  .num-badge {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 0.85rem;
+    flex-shrink: 0;
+  }
+
+  /* ── Navigation ── */
+  .nav {
+    position: fixed;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    z-index: 100;
+  }
+  .nav-btn {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: white;
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1.1rem;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+    backdrop-filter: blur(8px);
+  }
+  .nav-btn:hover { background: rgba(255,109,90,0.3); border-color: var(--n8n-orange); }
+  .nav-btn:disabled { opacity: 0.3; cursor: default; }
+  .slide-counter {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    min-width: 60px;
+    text-align: center;
+    font-weight: 600;
+  }
+
+  /* ── Progress bar ── */
+  .progress-bar {
+    position: fixed;
+    top: 0; left: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--n8n-orange), var(--n8n-purple));
+    transition: width 0.4s ease;
+    z-index: 200;
+  }
+
+  /* ── Slide number ── */
+  .slide-num-indicator {
+    position: fixed;
+    top: 20px; right: 28px;
+    font-size: 0.75rem;
+    color: rgba(255,255,255,0.2);
+    font-weight: 600;
+    letter-spacing: 1px;
+  }
+
+  /* ── Tip box ── */
+  .tip-box {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    background: rgba(250,176,5,0.08);
+    border: 1px solid rgba(250,176,5,0.25);
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin-top: 14px;
+  }
+  .tip-icon { font-size: 1.1rem; flex-shrink: 0; }
+  .tip-text { font-size: 0.85rem; color: #FFD43B; line-height: 1.55; }
+
+  /* ── Loop diagram ── */
+  .loop-diagram {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* ── Prevent grid cells from stretching vertically ── */
+  .grid-2, .grid-3 { align-items: start; align-content: start; }
+  .grid-2 > *, .grid-3 > * { align-self: start; }
+
+  /* ── Slide-specific smalltext ── */
+  .small { font-size: 0.8rem !important; }
+
+  ul { padding-left: 0; list-style: none; }
+  ul li { position: relative; padding-left: 18px; margin-bottom: 6px; font-size: 0.9rem; }
+  ul li::before { content: "›"; position: absolute; left: 0; color: var(--n8n-orange); font-weight: 700; }
+</style>
+</head>
+<body>
+
+<div class="progress-bar" id="progressBar"></div>
+<div style="position: fixed; top: 16px; right: 28px; z-index: 200; text-align: right; line-height: 1.6; pointer-events: none;">
+  <div style="font-size: 0.72rem; font-weight: 700; color: rgba(255,255,255,0.4); letter-spacing: 0.5px;">Ondřej Chaloupecký</div>
+  <div id="slideNumIndicator" style="font-size: 0.68rem; color: rgba(255,255,255,0.18); font-weight: 600; letter-spacing: 1px;"></div>
+</div>
+
+<div class="slideshow" id="slideshow">
+
+  <!-- ═══════════════════════════════════════════════════════════
+       ##############  CAST 2: STAVIME AI CHATBOTA  ##############
+  ═══════════════════════════════════════════════════════════════ -->
+
+  <!-- ══════════════════════════════════════════════
+       SLIDE P2-1 — HERO: Stavime firemnich AI Chatbota
+  ══════════════════════════════════════════════ -->
+  <div class="slide slide-hero">
+    <div class="slide-tag">&#268;&#193;ST 2 &#183; AI Chatbot</div>
+    <h1 style="font-size: clamp(2rem, 5vw, 3.6rem);">Stav&#237;me firemn&#237;ho<br><em>AI Chatbota v n8n</em></h1>
+    <p style="font-size: 1.1rem; color: var(--text-muted); max-width: 640px; text-align: center; margin: 0 auto 28px;">
+      Od pr&#225;zdn&#233;ho pl&#225;tna k chatbotu, kter&#253; zn&#225; v&#225;&#353; katalog &#8212; step by step.
+    </p>
+    <div class="grid-3" style="max-width: 820px; margin: 0 auto; gap: 14px;">
+      <div class="card" style="text-align: center; border-color: rgba(255,109,90,0.3); background: rgba(255,109,90,0.07);">
+        <div style="font-size: 2rem; margin-bottom: 8px;">&#128273;</div>
+        <div class="badge badge-orange" style="margin-bottom: 6px;">Krok 1</div>
+        <p class="small">Credentials<br>Service Account</p>
+      </div>
+      <div class="card" style="text-align: center; border-color: rgba(76,110,245,0.3); background: rgba(76,110,245,0.07);">
+        <div style="font-size: 2rem; margin-bottom: 8px;">&#129302;</div>
+        <div class="badge badge-blue" style="margin-bottom: 6px;">Krok 2</div>
+        <p class="small">AI Agent<br>+ LLM + N&#225;stroje</p>
+      </div>
+      <div class="card" style="text-align: center; border-color: rgba(64,192,87,0.3); background: rgba(64,192,87,0.07);">
+        <div style="font-size: 2rem; margin-bottom: 8px;">&#128202;</div>
+        <div class="badge badge-green" style="margin-bottom: 6px;">Krok 3</div>
+        <p class="small">Google Sheets<br>jako datov&#253; n&#225;stroj</p>
+      </div>
+      <div class="card" style="text-align: center; border-color: rgba(151,117,250,0.3); background: rgba(151,117,250,0.07);">
+        <div style="font-size: 2rem; margin-bottom: 8px;">&#129504;</div>
+        <div class="badge badge-purple" style="margin-bottom: 6px;">Krok 4</div>
+        <p class="small">Pam&#283;&#357;<br>Simple Memory</p>
+      </div>
+      <div class="card" style="text-align: center; border-color: rgba(250,176,5,0.3); background: rgba(250,176,5,0.07);">
+        <div style="font-size: 2rem; margin-bottom: 8px;">&#128172;</div>
+        <div class="badge badge-yellow" style="margin-bottom: 6px;">Krok 5</div>
+        <p class="small">Chat Trigger<br>+ Customizace</p>
+      </div>
+      <div class="card" style="text-align: center; border-color: rgba(255,109,90,0.2); background: rgba(255,255,255,0.03);">
+        <div style="font-size: 2rem; margin-bottom: 8px;">&#129312;</div>
+        <div class="badge badge-orange" style="margin-bottom: 6px;">Bonus</div>
+        <p class="small">Persona<br>"Kovboj z divok&#233;ho z&#225;padu"</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SLIDE P2-2 — Credentials: Service Account setup
+  ══════════════════════════════════════════════ -->
+  <div class="slide slide-teal">
+    <div class="slide-tag">P2 &#183; Krok 1 &#8212; Credentials</div>
+    <h2>P&#345;ipojen&#237; k <em>Google</em>: Service Account</h2>
+    <div class="grid-2" style="flex: 1; gap: 20px;">
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div style="display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border-radius: 10px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);">
+          <div class="num-badge" style="background: rgba(255,109,90,0.2); color: var(--n8n-orange);">1</div>
+          <div>
+            <div style="font-size: 0.88rem; font-weight: 700; color: var(--text-light); margin-bottom: 4px;">Google Cloud Console &#8594; Service Accounts</div>
+            <p class="small">Otev&#345;ete <strong>console.cloud.google.com</strong> &#8594; IAM &amp; Admin &#8594; Service Accounts &#8594; &ldquo;+ Create Service Account&rdquo;.<br>
+            Pojmenujte ho (nap&#345;. <code style="background:rgba(255,255,255,0.1);padding:1px 5px;border-radius:3px;">n8n-workshop-bot</code>) &#8594; Create.</p>
+          </div>
+        </div>
+        <div style="display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border-radius: 10px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);">
+          <div class="num-badge" style="background: rgba(76,110,245,0.2); color: #7B9EFF;">2</div>
+          <div>
+            <div style="font-size: 0.88rem; font-weight: 700; color: var(--text-light); margin-bottom: 4px;">St&#225;hn&#283;te JSON kl&#237;&#269;</div>
+            <p class="small">Klikn&#283;te na vytvo&#345;en&#253; &#250;&#269;et &#8594; z&#225;lo&#382;ka <strong>Keys</strong> &#8594; Add Key &#8594; Create new key &#8594; typ <strong>JSON</strong>.<br>
+            Soubor se okam&#382;it&#283; st&#225;hne na v&#225;&#353; disk &#8212; <strong>chr&#225;&#328;te ho jako heslo</strong>, obsahuje priv&#225;tn&#237; kl&#237;&#269;.</p>
+          </div>
+        </div>
+        <div style="display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border-radius: 10px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);">
+          <div class="num-badge" style="background: rgba(64,192,87,0.2); color: #69DB7C;">3</div>
+          <div>
+            <div style="font-size: 0.88rem; font-weight: 700; color: var(--text-light); margin-bottom: 4px;">V n8n: Credentials &#8594; Google Service Account</div>
+            <p class="small">Settings &#8594; Credentials &#8594; &ldquo;+ Add credential&rdquo; &#8594; hledejte <strong>&ldquo;Google Service Account&rdquo;</strong>.<br>
+            Vlo&#382;te cel&#253; obsah st&#225;hnut&#233;ho JSON souboru do pole <em>Service Account JSON</em>. Ulo&#382;te.</p>
+          </div>
+        </div>
+        <div style="display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border-radius: 10px; background: rgba(250,176,5,0.07); border: 1px solid rgba(250,176,5,0.25);">
+          <div class="num-badge" style="background: rgba(250,176,5,0.2); color: #FFD43B;">4</div>
+          <div>
+            <div style="font-size: 0.88rem; font-weight: 700; color: #FFD43B; margin-bottom: 4px;">&#9888;&#65039; Nasd&#237;lejte tabulku na e-mail service accountu</div>
+            <p class="small">V JSON souboru najdete pole <code style="background:rgba(255,255,255,0.1);padding:1px 5px;border-radius:3px;">client_email</code>, nap&#345;.:<br>
+            <strong style="color: #FFD43B;">n8n-bot@projekt.iam.gserviceaccount.com</strong><br>
+            Otev&#345;ete Google Sheets tabulku &#8594; Sd&#237;let &#8594; p&#345;idejte tento e-mail jako <strong>Editor nebo Prohl&#237;&#382;e&#269;</strong>.<br>
+            Bez tohoto kroku: <code style="background:rgba(250,82,82,0.15);padding:1px 5px;border-radius:3px;color:#FF8787;">403 PERMISSION_DENIED</code></p>
+          </div>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <div class="card accent-blue">
+          <h3>&#129302; LLM Credential (Gemini / OpenAI)</h3>
+          <p style="margin-bottom: 10px;">Pro AI modely pou&#382;&#237;v&#225;me Google Vertex AI (Gemini). Credential typ je op&#283;t <strong>Google Service Account</strong> &#8212; ale mus&#237; m&#237;t zapnut&#233; Vertex AI API v Google Cloud.</p>
+          <div style="padding: 8px 12px; border-radius: 8px; background: rgba(76,110,245,0.08); border: 1px solid rgba(76,110,245,0.15); font-size: 0.8rem; color: var(--text-muted);">
+            <strong style="color: #7B9EFF;">Alternativa:</strong> OpenAI, Anthropic, Mistral &#8212; ty pou&#382;&#237;vaj&#237; jednoduch&#253; Bearer token (API Key). Credential typ: &ldquo;OpenAI API&rdquo; v n8n &#8594; vlo&#382;te kl&#237;&#269;.
+          </div>
+        </div>
+        <div class="card accent-orange">
+          <h3>&#128161; Dva r&#367;zn&#233; Service Accounty</h3>
+          <p class="small">V na&#353;em chatbot workflow jsou dva Service Accounty:</p>
+          <div style="display: flex; flex-direction: column; gap: 7px; margin-top: 10px;">
+            <div style="padding: 8px 12px; border-radius: 8px; background: rgba(255,109,90,0.08); font-size: 0.8rem;">
+              <strong style="color: var(--n8n-orange);">&#129504; Pro LLM (Vertex AI)</strong><br>
+              <span style="color: var(--text-muted);">Pot&#345;ebuje Vertex AI API povolen&#233; v Google Cloud projektu.</span>
+            </div>
+            <div style="padding: 8px 12px; border-radius: 8px; background: rgba(64,192,87,0.08); font-size: 0.8rem;">
+              <strong style="color: #69DB7C;">&#128202; Pro Google Sheets</strong><br>
+              <span style="color: var(--text-muted);">Pot&#345;ebuje p&#345;&#237;stup ke konkr&#233;tn&#237; tabulce (sd&#237;let e-mail SA).</span>
+            </div>
+          </div>
+        </div>
+        <div class="tip-box">
+          <div class="tip-icon">&#128274;</div>
+          <div class="tip-text">Nikdy neukl&#225;dejte JSON kl&#237;&#269; do Gitu, Slacku ani do n8n pozn&#225;mek &#8212; jen do pole <strong>Credentials</strong>. n8n je &#353;ifruje a odd&#283;luje od logiky workflow.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SLIDE P2-3 — Anatomie chatbot workflow
+  ══════════════════════════════════════════════ -->
+  <div class="slide slide-purple">
+    <div class="slide-tag">P2 &#183; Krok 2 &#8212; Hlavn&#237; workflow</div>
+    <h2>Anatomie <em>chatbot workflow</em></h2>
+    <div style="display: flex; align-items: center; justify-content: center; gap: 4px; margin: 16px 0 20px; flex-wrap: wrap;">
+      <div style="padding: 10px 14px; border-radius: 10px; background: rgba(255,109,90,0.12); border: 1px solid rgba(255,109,90,0.35); text-align: center; min-width: 110px;">
+        <div style="font-size: 1.3rem; margin-bottom: 4px;">&#9654;&#65039;</div>
+        <div class="badge badge-orange" style="font-size: 9px; margin-bottom: 4px;">Trigger</div>
+        <div style="font-size: 0.72rem; font-weight: 700; color: var(--n8n-orange);">Manual Trigger</div>
+        <div style="font-size: 0.65rem; color: var(--text-muted);">spou&#353;t&#283;n&#237; na&#382;ivo</div>
+      </div>
+      <svg width="28" height="14" viewBox="0 0 28 14"><path d="M0 7 L20 7" stroke="#ADB5BD" stroke-width="1.5"/><path d="M16 2 L26 7 L16 12" fill="none" stroke="#ADB5BD" stroke-width="1.5"/></svg>
+      <div style="padding: 10px 14px; border-radius: 10px; background: rgba(76,110,245,0.12); border: 1px solid rgba(76,110,245,0.4); text-align: center; min-width: 110px;">
+        <div style="font-size: 1.3rem; margin-bottom: 4px;">&#9999;&#65039;</div>
+        <div class="badge badge-blue" style="font-size: 9px; margin-bottom: 4px;">Edit Fields</div>
+        <div style="font-size: 0.72rem; font-weight: 700; color: #7B9EFF;">Set chatInput</div>
+        <div style="font-size: 0.65rem; color: var(--text-muted);">va&#353;e zpr&#225;va</div>
+      </div>
+      <svg width="28" height="14" viewBox="0 0 28 14"><path d="M0 7 L20 7" stroke="#ADB5BD" stroke-width="1.5"/><path d="M16 2 L26 7 L16 12" fill="none" stroke="#ADB5BD" stroke-width="1.5"/></svg>
+      <div style="padding: 10px 14px; border-radius: 10px; background: rgba(64,192,87,0.12); border: 2px solid rgba(64,192,87,0.5); text-align: center; min-width: 120px;">
+        <div style="font-size: 1.3rem; margin-bottom: 4px;">&#129302;</div>
+        <div class="badge badge-green" style="font-size: 9px; margin-bottom: 4px;">AI Agent</div>
+        <div style="font-size: 0.72rem; font-weight: 700; color: #69DB7C;">Srdce chatbota</div>
+        <div style="font-size: 0.65rem; color: var(--text-muted);">rozhoduje + vol&#225; n&#225;stroje</div>
+      </div>
+    </div>
+    <div style="display: flex; justify-content: center; gap: 16px; margin-bottom: 16px; flex-wrap: wrap;">
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 3px;">
+        <svg width="12" height="16" viewBox="0 0 12 16"><path d="M6 0 L6 12" stroke="#9775FA" stroke-width="1.5"/><path d="M1 8 L6 14 L11 8" fill="none" stroke="#9775FA" stroke-width="1.5"/></svg>
+        <div style="padding: 8px 12px; border-radius: 8px; background: rgba(151,117,250,0.12); border: 1px solid rgba(151,117,250,0.35); text-align: center;">
+          <div style="font-size: 0.72rem; font-weight: 700; color: #B197FC;">&#129504; LLM Model</div>
+          <div style="font-size: 0.62rem; color: var(--text-muted);">Gemini 2.5 Pro</div>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 3px;">
+        <svg width="12" height="16" viewBox="0 0 12 16"><path d="M6 0 L6 12" stroke="#40C057" stroke-width="1.5"/><path d="M1 8 L6 14 L11 8" fill="none" stroke="#40C057" stroke-width="1.5"/></svg>
+        <div style="padding: 8px 12px; border-radius: 8px; background: rgba(64,192,87,0.1); border: 1px solid rgba(64,192,87,0.3); text-align: center;">
+          <div style="font-size: 0.72rem; font-weight: 700; color: #69DB7C;">&#128295; Tool: Google Sheets</div>
+          <div style="font-size: 0.62rem; color: var(--text-muted);">sub-workflow</div>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 3px;">
+        <svg width="12" height="16" viewBox="0 0 12 16"><path d="M6 0 L6 12" stroke="#FAB005" stroke-width="1.5"/><path d="M1 8 L6 14 L11 8" fill="none" stroke="#FAB005" stroke-width="1.5"/></svg>
+        <div style="padding: 8px 12px; border-radius: 8px; background: rgba(250,176,5,0.1); border: 1px solid rgba(250,176,5,0.3); text-align: center;">
+          <div style="font-size: 0.72rem; font-weight: 700; color: #FFD43B;">&#129513; Simple Memory</div>
+          <div style="font-size: 0.62rem; color: var(--text-muted);">(p&#345;id&#225;me d&#225;l)</div>
+        </div>
+      </div>
+    </div>
+    <div class="grid-2" style="gap: 16px;">
+      <div class="card accent-blue">
+        <h3>&#9999;&#65039; Edit Fields &#8212; pro&#269; je tam?</h3>
+        <p class="small">Manual Trigger negeneruje &#382;&#225;dn&#225; data s&#225;m od sebe. <strong>Edit Fields</strong> vytvo&#345;&#237; pole <code style="background:rgba(255,255,255,0.1);padding:1px 5px;border-radius:3px;">chatInput</code> s va&#353;&#237; testovac&#237; zpr&#225;vou.</p>
+        <div style="margin-top: 10px; padding: 8px 12px; border-radius: 8px; background: rgba(76,110,245,0.08); border: 1px solid rgba(76,110,245,0.2); font-family: monospace; font-size: 0.78rem; color: #7B9EFF;">
+          chatInput = "Kter&#233; produkty maj&#237; barvu v n&#225;zvu?"
+        </div>
+        <p class="small" style="margin-top: 8px;">AI Agent toto pole automaticky p&#345;e&#269;te a pou&#382;ije jako vstup konverzace (v&#253;choz&#237; nastaven&#237; <em>User Message</em>).</p>
+      </div>
+      <div class="card accent-green">
+        <h3>&#129302; AI Agent &#8212; co p&#345;esn&#283; d&#283;l&#225;</h3>
+        <div style="display: flex; flex-direction: column; gap: 7px; margin-top: 8px;">
+          <div style="display: flex; gap: 8px; align-items: flex-start; font-size: 0.82rem;"><span style="color: #69DB7C; flex-shrink: 0; font-weight: 700;">1.</span><span style="color: var(--text-muted);">P&#345;e&#269;te zpr&#225;vu u&#382;ivatele (chatInput)</span></div>
+          <div style="display: flex; gap: 8px; align-items: flex-start; font-size: 0.82rem;"><span style="color: #69DB7C; flex-shrink: 0; font-weight: 700;">2.</span><span style="color: var(--text-muted);">Rozhodne, zda pot&#345;ebuje zavolat n&#225;stroj (Google Sheets) nebo ne</span></div>
+          <div style="display: flex; gap: 8px; align-items: flex-start; font-size: 0.82rem;"><span style="color: #69DB7C; flex-shrink: 0; font-weight: 700;">3.</span><span style="color: var(--text-muted);">Pokud ano &#8212; zavol&#225; sub-workflow, dostane data, zpracuje je</span></div>
+          <div style="display: flex; gap: 8px; align-items: flex-start; font-size: 0.82rem;"><span style="color: #69DB7C; flex-shrink: 0; font-weight: 700;">4.</span><span style="color: var(--text-muted);">Sestav&#237; odpov&#283;&#271; v dan&#233;m stylu (System Prompt = "kovboj")</span></div>
+          <div style="display: flex; gap: 8px; align-items: flex-start; font-size: 0.82rem;"><span style="color: #69DB7C; flex-shrink: 0; font-weight: 700;">5.</span><span style="color: var(--text-muted);">Vr&#225;t&#237; odpov&#283;&#271; &#8212; v&#253;stup workflow</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SLIDE P2-4 — Sub-workflow: Google Sheets tool
+  ══════════════════════════════════════════════ -->
+  <div class="slide slide-green">
+    <div class="slide-tag">P2 &#183; Krok 3 &#8212; Datov&#253; n&#225;stroj</div>
+    <h2>Google Sheets jako <em>analytick&#253; n&#225;stroj</em></h2>
+    <div class="grid-2" style="flex: 1; gap: 20px;">
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <div class="card accent-green">
+          <h3>&#128194; Sub-workflow: Co d&#283;l&#225;</h3>
+          <p style="margin-bottom: 12px;">Jednoduch&#253; dvou-nodov&#253; workflow s jedinou &#250;lohou: <strong>st&#225;hnout data z tabulky a vr&#225;tit je agentovi</strong>.</p>
+          <div style="display: flex; align-items: center; gap: 8px; justify-content: center; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 10px; border: 1px solid rgba(255,255,255,0.07);">
+            <div style="padding: 8px 12px; border-radius: 8px; background: rgba(64,192,87,0.12); border: 1px solid rgba(64,192,87,0.3); text-align: center; font-size: 0.75rem;">
+              <div style="font-size: 1.1rem; margin-bottom: 2px;">&#9889;</div>
+              <strong style="color: #69DB7C;">Execute Workflow<br>Trigger</strong>
+            </div>
+            <svg width="28" height="12" viewBox="0 0 28 12"><path d="M0 6 L20 6" stroke="#ADB5BD" stroke-width="1.5"/><path d="M16 1 L26 6 L16 11" fill="none" stroke="#ADB5BD" stroke-width="1.5"/></svg>
+            <div style="padding: 8px 12px; border-radius: 8px; background: rgba(64,192,87,0.12); border: 1px solid rgba(64,192,87,0.3); text-align: center; font-size: 0.75rem;">
+              <div style="font-size: 1.1rem; margin-bottom: 2px;">&#128202;</div>
+              <strong style="color: #69DB7C;">Google Sheets<br>Get Rows</strong>
+            </div>
+          </div>
+          <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 6px;">
+            <div style="display: flex; gap: 8px; align-items: flex-start; font-size: 0.82rem;"><span style="color: #69DB7C; flex-shrink: 0; font-weight: 700;">&#10003;</span><span style="color: var(--text-muted);"><strong style="color: var(--text-light);">&#381;&#225;dn&#233; filtry</strong> &#8212; vr&#225;t&#237; v&#353;echny &#345;&#225;dky (prv. ~50 pro testov&#225;n&#237;)</span></div>
+            <div style="display: flex; gap: 8px; align-items: flex-start; font-size: 0.82rem;"><span style="color: #69DB7C; flex-shrink: 0; font-weight: 700;">&#10003;</span><span style="color: var(--text-muted);"><strong style="color: var(--text-light);">Agent rozhoduje</strong>, kolik dat pot&#345;ebuje &#8212; vy je jen poskytujete cel&#233;</span></div>
+            <div style="display: flex; gap: 8px; align-items: flex-start; font-size: 0.82rem;"><span style="color: #69DB7C; flex-shrink: 0; font-weight: 700;">&#10003;</span><span style="color: var(--text-muted);">N&#225;stroj nevyp&#382;aduje &#382;&#225;dn&#233; vstupn&#237; parametry od agenta</span></div>
+          </div>
+        </div>
+        <div class="card accent-blue">
+          <h3>&#128279; Call Workflow Tool &#8212; propojen&#237;</h3>
+          <p class="small" style="margin-bottom: 10px;">V hlavn&#237;m workflow p&#345;id&#225;te k AI Agentovi nodu <strong>Call Workflow Tool</strong>. Vyberete ID sub-workflow a nap&#237;&#353;ete <em>popis pro AI</em>:</p>
+          <div style="padding: 10px 14px; border-radius: 8px; background: rgba(76,110,245,0.08); border: 1px solid rgba(76,110,245,0.2); font-size: 0.8rem; font-style: italic; color: var(--text-muted); line-height: 1.6;">
+            &ldquo;Zavolej tento n&#225;stroj, kdykoliv t&#283; u&#382;ivatel po&#382;&#225;d&#225; o jak&#233;koliv informace, statistiky nebo anal&#253;zu produkt&#367;. N&#225;stroj nevyp&#382;aduje parametry a vr&#225;t&#237; ti kompletn&#237; seznam produkt&#367; v katalogu.&rdquo;
+          </div>
+          <p class="small" style="margin-top: 8px;">Tento popis je kl&#237;&#269;ov&#253; &#8212; AI Agent ho &#269;te a na z&#225;klad&#283; n&#283;j <strong>s&#225;m rozhodne</strong>, kdy n&#225;stroj zavolat.</p>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <div class="card" style="border-color: rgba(250,176,5,0.3); background: rgba(250,176,5,0.05);">
+          <h3 style="color: #FFD43B; margin-bottom: 12px;">&#128203; Sch&#233;ma tabulky Workshop Chat</h3>
+          <div style="display: flex; flex-direction: column; gap: 5px;">
+            <div style="display: flex; gap: 10px; padding: 6px 10px; background: rgba(255,255,255,0.04); border-radius: 6px; font-size: 0.78rem;"><code style="color: var(--n8n-orange); min-width: 90px;">product_code</code><span style="color: var(--text-muted);">Unik&#225;tn&#237; k&#243;d produktu</span></div>
+            <div style="display: flex; gap: 10px; padding: 6px 10px; background: rgba(255,255,255,0.04); border-radius: 6px; font-size: 0.78rem;"><code style="color: #7B9EFF; min-width: 90px;">prefix / seg1-3</code><span style="color: var(--text-muted);">Hierarchie kategori&#237;</span></div>
+            <div style="display: flex; gap: 10px; padding: 6px 10px; background: rgba(255,255,255,0.04); border-radius: 6px; font-size: 0.78rem;"><code style="color: #69DB7C; min-width: 90px;">name</code><span style="color: var(--text-muted);">N&#225;zev produktu</span></div>
+            <div style="display: flex; gap: 10px; padding: 6px 10px; background: rgba(255,255,255,0.04); border-radius: 6px; font-size: 0.78rem;"><code style="color: #B197FC; min-width: 90px;">desc_type</code><span style="color: var(--text-muted);">On / Top / Generate / Off</span></div>
+            <div style="display: flex; gap: 10px; padding: 6px 10px; background: rgba(255,255,255,0.04); border-radius: 6px; font-size: 0.78rem;"><code style="color: #FFD43B; min-width: 90px;">char_count</code><span style="color: var(--text-muted);">Po&#269;et znak&#367; popisu</span></div>
+            <div style="display: flex; gap: 10px; padding: 6px 10px; background: rgba(255,255,255,0.04); border-radius: 6px; font-size: 0.78rem;"><code style="color: #FF8787; min-width: 90px;">wp</code><span style="color: var(--text-muted);">Webový příznak</span></div>
+          </div>
+        </div>
+        <div class="card accent-purple">
+          <h3>&#129504; Pro&#269; agent na datech funguje?</h3>
+          <p class="small">Agent dostane tabulku jako JSON array &#8212; <strong>p&#345;e&#269;te v&#353;echny &#345;&#225;dky</strong> a na z&#225;klad&#283; System Promptu je analyzuje s&#225;m. Nefiltruje se nic p&#345;edem.</p>
+          <div class="tip-box" style="margin-top: 10px;">
+            <div class="tip-icon">&#128161;</div>
+            <div class="tip-text" style="font-size: 0.78rem;">Test: zeptejte se &ldquo;Kter&#233; produkty maj&#237; <strong>desc_type = Generate</strong> a krat&#353;&#237; popis ne&#382; 200 znak&#367;?&rdquo; &#8212; Agent to projde a odpov&#237; jako kovboj.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SLIDE P2-5 — System Prompt & Persona Engineering
+  ══════════════════════════════════════════════ -->
+  <div class="slide slide-orange">
+    <div class="slide-tag">P2 &#183; Krok 4 &#8212; Prompt Engineering</div>
+    <h2><em>System Prompt</em> a du&#353;e chatbota</h2>
+    <div class="grid-2" style="flex: 1; gap: 20px;">
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <div class="card accent-orange">
+          <h3>&#128679; Ze &#269;eho se skl&#225;d&#225; dobr&#253; System Prompt</h3>
+          <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;">
+            <div style="padding: 9px 12px; border-radius: 8px; background: rgba(255,109,90,0.08); border: 1px solid rgba(255,109,90,0.2);">
+              <div style="font-size: 0.82rem; font-weight: 700; color: var(--n8n-orange); margin-bottom: 3px;">1. Role &amp; Osobnost</div>
+              <p class="small">Kdo je bot? Jak mluv&#237;? Jak&#253; m&#225; t&#243;n? &#8212; Tady definujete &ldquo;kovboje&rdquo;.</p>
+            </div>
+            <div style="padding: 9px 12px; border-radius: 8px; background: rgba(76,110,245,0.08); border: 1px solid rgba(76,110,245,0.2);">
+              <div style="font-size: 0.82rem; font-weight: 700; color: #7B9EFF; margin-bottom: 3px;">2. Analytick&#233; instrukce</div>
+              <p class="small">Jak m&#225; zach&#225;zet s daty? Proch&#225;zet &#345;&#225;dek po &#345;&#225;dku, nehalucinovat.</p>
+            </div>
+            <div style="padding: 9px 12px; border-radius: 8px; background: rgba(64,192,87,0.08); border: 1px solid rgba(64,192,87,0.2);">
+              <div style="font-size: 0.82rem; font-weight: 700; color: #69DB7C; margin-bottom: 3px;">3. Form&#225;tov&#225;n&#237; v&#253;stupu</div>
+              <p class="small">&#381;&#225;dn&#233; raw JSON, &#382;&#225;dn&#233; tabulky. Pou&#382;&#237;vej emoji, od&#345;&#225;dkov&#225;n&#237;, logick&#233; skupiny.</p>
+            </div>
+            <div style="padding: 9px 12px; border-radius: 8px; background: rgba(250,176,5,0.08); border: 1px solid rgba(250,176,5,0.2);">
+              <div style="font-size: 0.82rem; font-weight: 700; color: #FFD43B; margin-bottom: 3px;">4. Limity &amp; Poctivost</div>
+              <p class="small">Pokud data nejsou v tabulce &#8212; p&#345;iznej. Nehalucinuj. Rad&#283;ji odpov&#283;z jako &ldquo;poraz&#780;en&#253; indi&#225;n&rdquo;.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <div class="card" style="border-color: rgba(250,176,5,0.3); background: rgba(250,176,5,0.04);">
+          <h3 style="color: #FFD43B; margin-bottom: 10px;">&#129312; Na&#353;e prompty (zkr&#225;ceno)</h3>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="padding: 9px 12px; border-radius: 8px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);">
+              <div style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">Analytick&#233; instrukce</div>
+              <p style="font-size: 0.78rem; color: var(--text-muted); font-style: italic; line-height: 1.55;">&ldquo;Kdy&#382; dostane&#353; data z datab&#225;ze, pe&#269;liv&#283; si je v&#353;echna p&#345;e&#269;ti. Pokud se u&#382;ivatel pt&#225; na analytick&#253; dotaz, projdi si z&#225;znam po z&#225;znamu, pou&#382;ij sv&#367;j &#250;sudek k identifikaci dan&#233;ho jevu a v&#253;sledek spi&#353; do logick&#253;ch skupin.&rdquo;</p>
+            </div>
+            <div style="padding: 9px 12px; border-radius: 8px; background: rgba(255,109,90,0.06); border: 1px solid rgba(255,109,90,0.2);">
+              <div style="font-size: 0.7rem; font-weight: 700; color: var(--n8n-orange); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">Persona</div>
+              <p style="font-size: 0.78rem; color: var(--text-muted); font-style: italic; line-height: 1.55;">&ldquo;Jako prvn&#237; pozdrav stylem jako indi&#225;n. D&#225;l u&#382; odpov&#237;dej jako <strong style="color: var(--n8n-orange);">drsn&#253; a&#382; arogant&#237; kovboj z divok&#233;ho z&#225;padu</strong>.&rdquo;</p>
+            </div>
+            <div style="padding: 9px 12px; border-radius: 8px; background: rgba(64,192,87,0.06); border: 1px solid rgba(64,192,87,0.2);">
+              <div style="font-size: 0.7rem; font-weight: 700; color: #69DB7C; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">Form&#225;tov&#225;n&#237;</div>
+              <p style="font-size: 0.78rem; color: var(--text-muted); font-style: italic; line-height: 1.55;">&ldquo;Nikdy nevyhazuj surov&#253; JSON. Pou&#382;&#237;vej &#129001; pro hotovo, &#128308; pro chybu. &#381;&#225;dn&#233; Markdown tabulky &#8212; jen text a emoji.&rdquo;</p>
+            </div>
+          </div>
+        </div>
+        <div class="tip-box">
+          <div class="tip-icon">&#129312;</div>
+          <div class="tip-text">Persona nen&#237; jen z&#225;bava &#8212; je to zp&#367;sob, jak bot <strong>konzistentn&#283; mluv&#237;</strong>. Z&#225;kazn&#237;ci si ho zapamatuj&#237; a budou v&#283;d&#283;t, co &#269;ekat.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SLIDE P2-6 — Context Window & Limity (Reality Check)
+  ══════════════════════════════════════════════ -->
+  <div class="slide slide-blue">
+    <div class="slide-tag">P2 &#183; Reality Check</div>
+    <h2>Pro&#269; ne <em>50&thinsp;000 &#345;&#225;dk&#367;?</em> Tokeny a limity</h2>
+    <div class="grid-2" style="flex: 1; gap: 20px;">
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <div class="card accent-blue">
+          <h3>&#129518; Co je Context Window?</h3>
+          <p style="margin-bottom: 12px;">Ka&#382;d&#253; LLM model m&#225; <strong>maxim&#225;ln&#237; kapacitu pam&#283;ti jednoho po&#382;adavku</strong> &#8212; tzv. Context Window. Po&#269;&#237;t&#225; se v <em>tokenech</em> (zhruba 1 token &#8776; 0,75 slova).</p>
+          <div style="display: flex; flex-direction: column; gap: 7px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-radius: 8px; background: rgba(76,110,245,0.08); border: 1px solid rgba(76,110,245,0.2); font-size: 0.82rem;">
+              <span style="color: #7B9EFF; font-weight: 700;">Gemini 2.5 Pro</span>
+              <span class="badge badge-blue">1 000 000 token&#367;</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-radius: 8px; background: rgba(76,110,245,0.08); border: 1px solid rgba(76,110,245,0.2); font-size: 0.82rem;">
+              <span style="color: #7B9EFF; font-weight: 700;">GPT-4o</span>
+              <span class="badge badge-purple">128 000 token&#367;</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-radius: 8px; background: rgba(76,110,245,0.08); border: 1px solid rgba(76,110,245,0.2); font-size: 0.82rem;">
+              <span style="color: #7B9EFF; font-weight: 700;">1 &#345;&#225;dek tabulky &#8776;</span>
+              <span class="badge badge-orange">~20&#8211;100 token&#367;</span>
+            </div>
+          </div>
+          <div style="margin-top: 12px; padding: 10px 12px; border-radius: 8px; background: rgba(250,82,82,0.08); border: 1px solid rgba(250,82,82,0.2); font-size: 0.82rem;">
+            <strong style="color: #FF8787;">50 000 &#345;&#225;dk&#367; &times; 50 token&#367; = 2 500 000 token&#367;</strong><br>
+            <span style="color: var(--text-muted);">= daleko p&#345;es limit GPT-4o, drahé i u Gemini + pomal&#233; odpov&#283;di</span>
+          </div>
+        </div>
+        <div class="card accent-orange">
+          <h3>&#128176; Tokeny = pen&#237;ze</h3>
+          <p class="small">Ka&#382;d&#253; API request k LLM za tokeny plat&#237;te. Objem dat, kter&#253; po&#353;lete modelu, p&#345;&#237;mo ovliv&#328;uje cenu. Sta&#382;en&#237; 50 000 &#345;&#225;dk&#367; JSON p&#345;i ka&#382;d&#233; zpr&#225;v&#283; = pl&#253;tv&#225;n&#237;.</p>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <div class="card" style="border-color: rgba(64,192,87,0.35); background: rgba(64,192,87,0.06);">
+          <h3 style="color: #69DB7C; margin-bottom: 12px;">&#10003; Spr&#225;vn&#225; strategie pro velk&#225; data</h3>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="padding: 9px 12px; border-radius: 8px; background: rgba(64,192,87,0.08); border: 1px solid rgba(64,192,87,0.2); font-size: 0.82rem;">
+              <strong style="color: #69DB7C;">1. Filtrujte v datab&#225;zi (SQL), ne v LLM</strong><br>
+              <span style="color: var(--text-muted);">Ptejte se PostgreSQL nebo Sheets API s WHERE podm&#237;nkou &#8212; po&#353;lete modelu jen relevantn&#237; &#345;&#225;dky.</span>
+            </div>
+            <div style="padding: 9px 12px; border-radius: 8px; background: rgba(64,192,87,0.08); border: 1px solid rgba(64,192,87,0.2); font-size: 0.82rem;">
+              <strong style="color: #69DB7C;">2. Smysluln&#253; LIMIT</strong><br>
+              <span style="color: var(--text-muted);">Pro workshopov&#233; testov&#225;n&#237;: prvn&#237;ch 50 &#345;&#225;dk&#367; sta&#269;&#237;. Pro produkci: max. tolik, kolik model bezpe&#269;n&#283; zpracuje.</span>
+            </div>
+            <div style="padding: 9px 12px; border-radius: 8px; background: rgba(64,192,87,0.08); border: 1px solid rgba(64,192,87,0.2); font-size: 0.82rem;">
+              <strong style="color: #69DB7C;">3. Vektorov&#233; DB pro velk&#233; katalogy</strong><br>
+              <span style="color: var(--text-muted);">Qdrant, Pinecone nebo PGVector &#8212; embedding search najde podobn&#233; produkty bez &#269;ten&#237; v&#353;ech &#345;&#225;dk&#367;.</span>
+            </div>
+          </div>
+        </div>
+        <div class="card accent-yellow">
+          <h3 style="color: #FFD43B;">&#127917; I na 50 &#345;&#225;dc&#237;ch se toho d&#225; dost prok&#225;zat</h3>
+          <p class="small">Analytick&#225; schopnost agenta &#8212; rozpoznat barvy v n&#225;zvech, spo&#269;&#237;tat produkty v kategori&#237;ch, naj&#237;t pr&#225;zdn&#233; pole &#8212; funguje identicky na 50 i 5 000 &#345;&#225;dc&#237;ch. Pro demo je 50 ide&#225;ln&#237;ch.</p>
+        </div>
+        <div class="tip-box">
+          <div class="tip-icon">&#128161;</div>
+          <div class="tip-text">Zlat&#233; pravidlo: <strong>Nikdy nevyhazuj surov&#253; JSON u&#382;ivateli</strong>. Agent ho mus&#237; nejd&#349;&#237;v p&#345;e&#269;&#237;st a p&#345;elo&#382;it do lidsky &#269;iteln&#233; podoby.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SLIDE P2-7 — Simple Memory Node
+  ══════════════════════════════════════════════ -->
+  <div class="slide slide-purple">
+    <div class="slide-tag">P2 &#183; Krok 5 &#8212; Pam&#283;&#357;</div>
+    <h2>Pro&#269; bot <em>zapom&#237;n&#225;</em> &#8212; a jak to <em>opravit</em></h2>
+    <div class="grid-2" style="flex: 1; gap: 20px;">
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <div class="card accent-red">
+          <h3>&#129398; Bez pam&#283;ti: Ka&#382;d&#225; zpr&#225;va je nov&#253; za&#269;&#225;tek</h3>
+          <p style="margin-bottom: 12px;">LLM modely jsou ze sv&#233; podstaty <strong>bezstav ov&#233; (stateless)</strong>. Ka&#382;d&#253; API call dostane jen to, co mu po&#353;lete. Bez pam&#283;ti neexistuje &ldquo;konverzace&rdquo;.</p>
+          <div style="display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; background: rgba(250,82,82,0.07); border-radius: 8px; border: 1px solid rgba(250,82,82,0.2); font-size: 0.78rem;">
+            <div style="color: #7B9EFF;">Vy: Jak se jmenuješ?</div>
+            <div style="color: #69DB7C;">Bot: Jsem kovboj z divok&#233;ho z&#225;padu, pardner!</div>
+            <div style="color: #7B9EFF;">Vy: A co jsi mi p&#345;ed chv&#237;l&#237; &#345;&#237;kal?</div>
+            <div style="color: #FF8787;">Bot: Promi&#328;te, nev&#237;m na co se pt&#225;te. Nem&#225;m &#382;&#225;dn&#253; kontext p&#345;edchoz&#237; konverzace.</div>
+          </div>
+        </div>
+        <div class="card accent-green">
+          <h3>&#129504; S pam&#283;t&#237;: Konverzac&#774;n&#237; kontext</h3>
+          <div style="display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; background: rgba(64,192,87,0.07); border-radius: 8px; border: 1px solid rgba(64,192,87,0.2); font-size: 0.78rem; margin-bottom: 10px;">
+            <div style="color: #7B9EFF;">Vy: Jak se jmenuješ?</div>
+            <div style="color: #69DB7C;">Bot: Kovboj Durango, pardner! &#129312;</div>
+            <div style="color: #7B9EFF;">Vy: A jak&#233; produkty maj&#237; barvu v n&#225;zvu?</div>
+            <div style="color: #69DB7C;">Bot: [zavol&#225; tool, vr&#225;t&#237; seznam] ... 3 produkty. Cokoli dal&#353;&#237;ho, ciz&#225;ku?</div>
+            <div style="color: #7B9EFF;">Vy: Kolik t&#283;ch barevn&#253;ch produkt&#367; bylo?</div>
+            <div style="color: #69DB7C;">Bot: &#344;ekl jsem 3, copak nesly&#353;&#237;&#353;? &#129312;</div>
+          </div>
+          <p class="small">Simple Memory ulo&#382;&#237; historii konverzace a automaticky ji p&#345;ed&#225; LLM p&#345;i ka&#382;d&#233;m dal&#353;&#237;m vol&#225;n&#237;.</p>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <div class="card accent-blue">
+          <h3>&#9881;&#65039; Jak Simple Memory p&#345;idat</h3>
+          <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;">
+            <div style="display: flex; align-items: flex-start; gap: 10px; padding: 9px 12px; border-radius: 8px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07);">
+              <div class="num-badge" style="background: rgba(255,109,90,0.2); color: var(--n8n-orange); width: 24px; height: 24px; font-size: 0.75rem; flex-shrink: 0;">1</div>
+              <div style="font-size: 0.82rem;">V panelu AI Agenta klikn&#283;te na <strong>&ldquo;+ Add Memory&rdquo;</strong></div>
+            </div>
+            <div style="display: flex; align-items: flex-start; gap: 10px; padding: 9px 12px; border-radius: 8px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07);">
+              <div class="num-badge" style="background: rgba(76,110,245,0.2); color: #7B9EFF; width: 24px; height: 24px; font-size: 0.75rem; flex-shrink: 0;">2</div>
+              <div style="font-size: 0.82rem;">Vyhledejte a p&#345;idejte <strong>Simple Memory</strong> nodu</div>
+            </div>
+            <div style="display: flex; align-items: flex-start; gap: 10px; padding: 9px 12px; border-radius: 8px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07);">
+              <div class="num-badge" style="background: rgba(64,192,87,0.2); color: #69DB7C; width: 24px; height: 24px; font-size: 0.75rem; flex-shrink: 0;">3</div>
+              <div style="font-size: 0.82rem;">Nastavte <strong>Context Window Length</strong> (doporu&#269;eno: 20 zpr&#225;v)</div>
+            </div>
+            <div style="display: flex; align-items: flex-start; gap: 10px; padding: 9px 12px; border-radius: 8px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07);">
+              <div class="num-badge" style="background: rgba(250,176,5,0.2); color: #FFD43B; width: 24px; height: 24px; font-size: 0.75rem; flex-shrink: 0;">4</div>
+              <div style="font-size: 0.82rem;">Session ID &#8212; ka&#382;d&#253; u&#382;ivatel dostane vlastn&#237; pam&#283;&#357; d&#237;ky <code style="background:rgba(255,255,255,0.1);padding:1px 4px;border-radius:3px;font-size:0.75rem;">sessionId</code> z Chat Triggeru</div>
+            </div>
+          </div>
+        </div>
+        <div class="card" style="border-color: rgba(250,176,5,0.3); background: rgba(250,176,5,0.05);">
+          <h3 style="color: #FFD43B;">&#9888;&#65039; Window Buffer &#8212; kl&#237;&#269;ov&#233; nastaven&#237;</h3>
+          <p class="small" style="margin-bottom: 8px;">Po&#269;et zpr&#225;v v historii, kter&#233; se pos&#237;laj&#237; LLM s ka&#382;dou novou zpr&#225;vou.</p>
+          <div style="display: flex; gap: 12px; font-size: 0.8rem;">
+            <div style="flex: 1; padding: 8px; border-radius: 8px; background: rgba(64,192,87,0.08); border: 1px solid rgba(64,192,87,0.2); text-align: center;">
+              <div style="font-weight: 700; color: #69DB7C; margin-bottom: 4px;">10&#8211;20 zpr&#225;v</div>
+              <div style="color: var(--text-muted); font-size: 0.75rem;">Ide&#225;ln&#237; pro chatbota &#8212; kontext ale nep l&#253;tv&#225; tokeny</div>
+            </div>
+            <div style="flex: 1; padding: 8px; border-radius: 8px; background: rgba(250,82,82,0.08); border: 1px solid rgba(250,82,82,0.2); text-align: center;">
+              <div style="font-weight: 700; color: #FF8787; margin-bottom: 4px;">100+ zpr&#225;v</div>
+              <div style="color: var(--text-muted); font-size: 0.75rem;">Drah&#233;, pomal&#233;, historick&#253; kontext stejn&#283; ztr&#225;c&#237; relevanci</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SLIDE P2-8 — Chat Trigger & Customizace
+  ══════════════════════════════════════════════ -->
+  <div class="slide slide-teal">
+    <div class="slide-tag">P2 &#183; Krok 6 &#8212; Chat UI</div>
+    <h2><em>Chat Trigger</em> a firemn&#237; kab&#225;t</h2>
+    <div class="grid-2" style="flex: 1; gap: 20px;">
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <div class="card accent-orange">
+          <h3>&#128260; Manual Trigger &#8594; Chat Trigger</h3>
+          <p style="margin-bottom: 10px;">V&#253;m&#283;na jednoho uzlu &#8212; a m&#225;te &#382;iv&#253; webov&#253; chat. Odstra&#328;te <strong>Manual Trigger + Edit Fields</strong> a nahradte je <strong>Chat Trigger</strong> nodem.</p>
+          <div style="display: flex; gap: 10px; margin-top: 8px;">
+            <div style="flex: 1; padding: 8px 10px; border-radius: 8px; background: rgba(250,82,82,0.08); border: 1px solid rgba(250,82,82,0.2); font-size: 0.75rem; text-align: center;">
+              <div style="color: #FF8787; font-weight: 700; margin-bottom: 4px;">P&#344;ED</div>
+              <div style="color: var(--text-muted);">Manual Trigger + Edit Fields</div>
+              <div style="color: var(--text-muted); font-style: italic;">testov&#225;n&#237; lok&#225;ln&#283;</div>
+            </div>
+            <div style="display: flex; align-items: center; font-size: 1.2rem;">&#8594;</div>
+            <div style="flex: 1; padding: 8px 10px; border-radius: 8px; background: rgba(64,192,87,0.08); border: 1px solid rgba(64,192,87,0.2); font-size: 0.75rem; text-align: center;">
+              <div style="color: #69DB7C; font-weight: 700; margin-bottom: 4px;">PO</div>
+              <div style="color: var(--text-muted);">Chat Trigger</div>
+              <div style="color: var(--text-muted); font-style: italic;">&#382;iv&#253; webov&#253; chat</div>
+            </div>
+          </div>
+          <div class="tip-box" style="margin-top: 10px;">
+            <div class="tip-icon">&#128161;</div>
+            <div class="tip-text" style="font-size: 0.78rem;">Chat Trigger automaticky zpř&#237;stupn&#237; pole <code>chatInput</code> (zpr&#225;va u&#382;ivatele) a <code>sessionId</code> (pro pam&#283;&#357;). &#381;&#225;dn&#233; Edit Fields nepot&#345;ebujete.</div>
+          </div>
+        </div>
+        <div class="card accent-blue">
+          <h3>&#9881;&#65039; Nastaven&#237; Chat Triggeru</h3>
+          <div style="display: flex; flex-direction: column; gap: 7px; margin-top: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 7px 10px; background: rgba(255,255,255,0.04); border-radius: 6px; font-size: 0.8rem;"><span style="color: var(--text-muted);">N&#225;zev chatbota</span><code style="color: #7B9EFF; font-size: 0.75rem;">"Kovboj Durango"</code></div>
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 7px 10px; background: rgba(255,255,255,0.04); border-radius: 6px; font-size: 0.8rem;"><span style="color: var(--text-muted);">&#218;vodn&#237; zpr&#225;va</span><code style="color: #7B9EFF; font-size: 0.75rem;">"Howdy, pardner! &#129312;"</code></div>
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 7px 10px; background: rgba(255,255,255,0.04); border-radius: 6px; font-size: 0.8rem;"><span style="color: var(--text-muted);">Avatar URL</span><code style="color: #7B9EFF; font-size: 0.75rem;">odkaz na obr&#225;zek &#129312;</code></div>
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 7px 10px; background: rgba(255,255,255,0.04); border-radius: 6px; font-size: 0.8rem;"><span style="color: var(--text-muted);">Footer text</span><code style="color: #7B9EFF; font-size: 0.75rem;">"Powered by n8n &#128295;"</code></div>
+          </div>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <div class="card" style="border-color: rgba(151,117,250,0.3); background: rgba(151,117,250,0.05);">
+          <h3 style="color: #B197FC; margin-bottom: 10px;">&#127912; Custom CSS &#8212; firemn&#237; barvy</h3>
+          <p class="small" style="margin-bottom: 10px;">V nastaven&#237; Chat Triggeru je pole <strong>Allowed Origins / Custom CSS</strong>. Vlo&#382;te p&#225;r &#345;&#225;dk&#367; CSS pro firemn&#237; vizu&#225;l:</p>
+          <div class="code-block" style="font-size: 0.75rem; line-height: 1.8;">
+<span style="color:#ADB5BD;">/* Barva bublin uzivatele */</span>
+<span class="code-key">.chat-message-user</span> <span class="code-punct">{</span>
+  <span class="code-val">background</span><span class="code-punct">:</span> <span class="code-val">#0066FF</span><span class="code-punct">;</span>
+<span class="code-punct">}</span>
+<span style="color:#ADB5BD;">/* Zaobleni chat okna */</span>
+<span class="code-key">.chat-container</span> <span class="code-punct">{</span>
+  <span class="code-val">border-radius</span><span class="code-punct">:</span> <span class="code-val">16px</span><span class="code-punct">;</span>
+<span class="code-punct">}</span>
+          </div>
+        </div>
+        <div class="card accent-green">
+          <h3>&#127760; Produkc&#774;n&#237; odkaz a embed</h3>
+          <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 8px;">
+            <div style="padding: 9px 12px; border-radius: 8px; background: rgba(64,192,87,0.08); border: 1px solid rgba(64,192,87,0.2); font-size: 0.82rem;">
+              <strong style="color: #69DB7C;">P&#345;&#237;m&#253; odkaz na chat:</strong><br>
+              <span style="color: var(--text-muted); font-family: monospace; font-size: 0.75rem;">https://[vas-n8n].cloud/webhook/[id]/chat</span><br>
+              <span style="color: var(--text-muted);">Po&#353;lete koleg&#367;m &#8212; funguje v prohl&#237;&#382;e&#269;i ihned.</span>
+            </div>
+            <div style="padding: 9px 12px; border-radius: 8px; background: rgba(64,192,87,0.08); border: 1px solid rgba(64,192,87,0.2); font-size: 0.82rem;">
+              <strong style="color: #69DB7C;">Embed do webu / intranetu:</strong><br>
+              <span style="color: var(--text-muted);">Chat Trigger generuje &lt;script&gt; tag &#8212; vlo&#382;te na v&#225;&#353; intranet. Bot se zobraz&#237; jako plovouc&#237; bublina.</span>
+            </div>
+          </div>
+        </div>
+        <div class="tip-box">
+          <div class="tip-icon">&#128640;</div>
+          <div class="tip-text">Workflow mus&#237; b&#253;t <strong>aktivn&#237; (toggle ON)</strong> aby Chat Trigger poslouchal. Produkc&#774;n&#237; webhook je jin&#253; ne&#382; testovac&#237;!</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SLIDE P2-9 — Zaver: Chatbot Checklist
+  ══════════════════════════════════════════════ -->
+  <div class="slide slide-hero">
+    <div class="slide-tag">P2 &#183; Z&#225;v&#283;r</div>
+    <h2>V&#225;&#353; chatbot je <em>&#382;iv&#253;</em> &#8212; co d&#225;l?</h2>
+    <div class="grid-2" style="flex: 1; gap: 20px; align-items: start; margin-top: 4px;">
+      <div class="card" style="padding: 20px 24px;">
+        <ul class="checklist">
+          <li><span class="check-icon">&#9989;</span><div><strong>Service Account credentials</strong><div class="small" style="color: var(--text-muted); margin-top: 2px;">JSON kl&#237;&#269; vlo&#382;en do n8n &middot; tabulka nasd&#237;lena na client_email</div></div></li>
+          <li><span class="check-icon">&#9989;</span><div><strong>AI Agent + LLM napoje&#328;</strong><div class="small" style="color: var(--text-muted); margin-top: 2px;">Model vybr&#225;n &middot; credentials p&#345;i&#345;azeny &middot; System Prompt naps&#225;n</div></div></li>
+          <li><span class="check-icon">&#9989;</span><div><strong>Google Sheets Tool funguje</strong><div class="small" style="color: var(--text-muted); margin-top: 2px;">Sub-workflow vrac&#237; data &middot; Call Workflow Tool m&#225; popis pro AI</div></div></li>
+          <li><span class="check-icon">&#9989;</span><div><strong>Simple Memory p&#345;id&#225;na</strong><div class="small" style="color: var(--text-muted); margin-top: 2px;">Window Buffer nastaven &middot; Session ID z Chat Triggeru</div></div></li>
+          <li><span class="check-icon">&#9989;</span><div><strong>Chat Trigger aktivn&#237;</strong><div class="small" style="color: var(--text-muted); margin-top: 2px;">Workflow zapnuto (toggle ON) &middot; produkc&#774;n&#237; odkaz sd&#237;len</div></div></li>
+          <li><span class="check-icon">&#9989;</span><div><strong>Otestov&#225;no na re&#225;ln&#253;ch ot&#225;zk&#225;ch</strong><div class="small" style="color: var(--text-muted); margin-top: 2px;">Bot nehalucinuje &middot; form&#225;tuje odpov&#283;di spr&#225;vn&#283; &middot; persona funguje</div></div></li>
+        </ul>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <div class="card accent-purple">
+          <h3>&#128640; Co p&#345;idat jako dal&#353;&#237;</h3>
+          <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;">
+            <div style="padding: 9px 12px; border-radius: 8px; background: rgba(151,117,250,0.08); border: 1px solid rgba(151,117,250,0.2); font-size: 0.82rem;"><strong style="color: #B197FC;">&#128269; Vektorov&#233; embeddingy</strong><br><span style="color: var(--text-muted);">Qdrant + Embeddings pro s&#233;mantick&#233; hled&#225;n&#237; ve velk&#233;m katalogu</span></div>
+            <div style="padding: 9px 12px; border-radius: 8px; background: rgba(151,117,250,0.08); border: 1px solid rgba(151,117,250,0.2); font-size: 0.82rem;"><strong style="color: #B197FC;">&#128451; PostgreSQL m&#237;sto Sheets</strong><br><span style="color: var(--text-muted);">SQL dotazy filtru nam&#237;sto &ldquo;po&#353;li v&#353;e&rdquo; &#8212; efektivn&#283;j&#353;&#237; pro velk&#225; data</span></div>
+            <div style="padding: 9px 12px; border-radius: 8px; background: rgba(151,117,250,0.08); border: 1px solid rgba(151,117,250,0.2); font-size: 0.82rem;"><strong style="color: #B197FC;">&#128221; V&#237;ce n&#225;stroj&#367; pro agenta</strong><br><span style="color: var(--text-muted);">HTTP Request tool (hledej na webu) &middot; Code tool (v&#253;po&#269;ty) &middot; Email tool</span></div>
+            <div style="padding: 9px 12px; border-radius: 8px; background: rgba(151,117,250,0.08); border: 1px solid rgba(151,117,250,0.2); font-size: 0.82rem;"><strong style="color: #B197FC;">&#128272; Auth pro chat</strong><br><span style="color: var(--text-muted);">Omezen&#237; p&#345;&#237;stupu na firemn&#237; e-maily p&#345;es OAuth nebo tajn&#253; token</span></div>
+          </div>
+        </div>
+        <div class="card" style="border-color: rgba(255,109,90,0.3); background: rgba(255,109,90,0.06); text-align: center; padding: 20px;">
+          <div style="font-size: 3rem; margin-bottom: 8px;">&#129312;</div>
+          <h3 style="color: var(--n8n-orange); margin-bottom: 6px;">&ldquo;Ride on, pardner!&rdquo;</h3>
+          <p class="small">Automatizace nen&#237; c&#237;l &#8212; je to zp&#367;sob pr&#225;ce. Ka&#382;d&#253; bot, kter&#253; dnes postavit&#233;, v&#225;m z&#237;tra vr&#225;t&#237; hodiny voln&#233;ho &#269;asu.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<!-- /slideshow -->
+
+<!-- Navigation -->
+<div class="nav">
+  <button class="nav-btn" id="prevBtn" onclick="changeSlide(-1)" disabled>◀</button>
+  <div class="slide-counter" id="slideCounter">1 / 14</div>
+  <button class="nav-btn" id="nextBtn" onclick="changeSlide(1)">▶</button>
+</div>
+
+<script>
+  let current = 0;
+  const slides = document.querySelectorAll('.slide');
+  const total = slides.length;
+
+  function goTo(index) {
+    slides[current].classList.remove('active');
+    current = Math.max(0, Math.min(index, total - 1));
+    slides[current].classList.add('active');
+
+    document.getElementById('slideCounter').textContent = `${current + 1} / ${total}`;
+    document.getElementById('prevBtn').disabled = current === 0;
+    document.getElementById('nextBtn').disabled = current === total - 1;
+    document.getElementById('progressBar').style.width = `${((current + 1) / total) * 100}%`;
+    document.getElementById('slideNumIndicator').textContent = `${current + 1} / ${total}`;
+  }
+
+  function changeSlide(delta) { goTo(current + delta); }
+
+  // Keyboard navigation
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') {
+      e.preventDefault(); changeSlide(1);
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      e.preventDefault(); changeSlide(-1);
+    } else if (e.key === 'Home') {
+      e.preventDefault(); goTo(0);
+    } else if (e.key === 'End') {
+      e.preventDefault(); goTo(total - 1);
+    }
+  });
+
+  // Touch / swipe support
+  let touchStartX = 0;
+  document.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; });
+  document.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    if (Math.abs(dx) > 50) changeSlide(dx < 0 ? 1 : -1);
+  });
+
+  // Init
+  goTo(0);
+</script>
+</body>
+</html>
